@@ -1,0 +1,223 @@
+---
+title: "Mini Project Analysis"
+author: "Jordan Douglass"
+date: "10/8/2020"
+output: html_document
+---
+# U.S. Birth Data from 2000-2014
+This project will review birth data in the United States from 2000-2014. Variables given from this dataset include: `year`, `month`, `date_of_month`, the full date `date`, `day_of_week`, and `birth` count. These variables assist in creating the following data visualizations.
+
+## _Libraries_ in R need to be loaded from packages that contain functionality required for our visualizations.
+The following libraries will help us to organize, clean and visualize the data in a meaningful way.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(tidyverse)
+library(treemapify)
+library(dplyr)
+library(lubridate)
+library(scales)
+library(viridis)
+```
+
+## Loading the Data
+Now that we have loaded our packages, we need to load the data that will be used to create visualizations. The dataset is being read from GitHub directly but can also be viewed in the `/data` sub-folder provided. In addition, a new column, __season__ is being added here to allow for another layer of analysis.
+
+```{r births and seasonal addition}
+birth_data <- read_csv("https://raw.githubusercontent.com/reisanar/datasets/master/us_births_00_14.csv")
+
+#Create a new column identifying the season of births
+birth_data <- birth_data %>%
+  mutate(
+    season = case_when(
+      month %in% 10:12 ~ "Fall",
+      month %in%  1:3  ~ "Winter",
+      month %in%  4:6  ~ "Spring",
+      TRUE ~ "Summer"))
+summary(birth_data)
+```
+
+## Calculating Proportions
+The following step included finding the proportions of both the occurrences of total births by day of week, year and month.
+
+```{r births frequency by day}
+# find percentage of births by day of week
+daily_prop <- birth_data %>%
+  group_by(day_of_week) %>%
+  summarize(total = sum(births)) %>%
+  mutate(prop = round(100* total / sum(total),2))
+daily_prop
+```
+```{r births frequency by year}
+# find percentage of births by year
+yearly_prop <- birth_data %>%
+  group_by(year) %>%
+  summarize(total = sum(births)) %>%
+  mutate(prop = round(100* total / sum(total),2))
+yearly_prop
+
+```
+
+
+
+```{r births frequency by month}
+# find percentage of births by month
+birth_data$date = as.Date(birth_data$date, format="%Y~%m%d")
+birth_data$month = format(birth_data$date, format="%B")
+
+monthly_pct <- birth_data %>%
+  group_by(month) %>%
+  summarize(total = sum(births)) %>%
+  mutate(prop = round(100* total / sum(total),2))
+monthly_pct
+```
+
+```{r monthly avg}
+monthly_avg <- birth_data %>%
+  group_by(month) %>%
+  summarize(avg = mean(births))
+monthly_avg
+```
+
+## First Visualization!
+
+We've __finally__ made it to our first data visualization! This plot is Births Over Time - there is quite a lot of data found from the `date` variable. Because of this, our visualization looks overwhelming and a bit confusing... Truly, I'm not sure what I am even looking at. Our next steps should be breaking it down to see a bit more closely.
+```{r birth time series}
+tme <- ggplot(birth_data, aes(x = year, y = births)) +
+  geom_line() +
+  labs(title = "Births Over Time",
+       x = "Year",
+       y = "Birth Count",
+       caption = "Plot 1; Data: us_birth_data_00_14") +
+  theme_minimal() +
+  theme( panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.title = element_text(face="bold"))
+tme
+```
+
+## Second Visualization
+
+This visualization shows the count of births by day of the week. From this we can see that fewer births occurred on the weekend (Saturday and Sunday) than weekdays - Friday, on the other hand looks to be pretty popular.
+
+```{r births by week days viz}
+ggplot(birth_data, aes(day_of_week, births)) +
+  geom_line(aes(colour = day_of_week)) + 
+  labs(title = "Births by Day of Week",
+       x = "",
+       y = "",
+       caption = "Plot 2; Data: us_birth_data_00_14") +
+      theme_minimal() +
+       theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_blank(), legend.position = "none", plot.title = element_text(face="bold"))
+```
+
+## Third Visualization
+
+Created here is a __Treemap__ of the percentages of births by month (from the averages we created above). While the percentages are not appearing with the typical symbol (%), the values were created from the proportions of months using the `lubridate' package.
+
+Unfortunately, the Treemap created is not as extravagant as many others I've seen - it reminds me of a pie-chart in its level of use, the divided features are not easy to distinguish as all of the proportions are relatively equal or varying by 1%.
+```{r births by months treemap}
+tm1 <- ggplot(monthly_pct, aes(area = total, fill = month, label = paste(month, prop, sep = ""))) +
+  geom_treemap(show.legend = FALSE) +
+  geom_treemap_text(fontface = "bold", colour="white", place="bottomright", grow = FALSE) + 
+  scale_fill_viridis_d() +
+  labs(title = "Treemap",
+       subtitle = "Birth Percentages by Month, Values Total 100%",
+       caption = "Plot 3; Data: us_birth_data_00_14") +
+  theme( plot.title = element_text(face="bold"))
+tm1
+```
+
+## Fourth Visualization
+
+Earlier, we created a new column assigning different months to seasons (Fall, Spring, Summer, Winter). Here, we have a simple bar plot showing _Total Births by Season_. We can clearly see that most births occurred in the Summer season, while the fewest birth count appears in the Spring season.
+
+```{r Seasonal Births}
+ggplot(birth_data, aes(x=season, y=births)) +
+  geom_bar(stat="identity", position = position_dodge(), fill="#b19cd9") +
+  labs(title = "Total Births By Season",
+       x = "",
+       y = "",
+       caption = "Plot 4; Data: us_birth_data_00_2014") +
+   theme_minimal() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_blank(), plot.title = element_text(face="bold"))
+```
+
+
+## Fifth Visualization
+
+_You've made it to the final visualization!_
+The fifth and final visualization shows birth counts by years. As before, we have also used the `season` variable here. 
+
+By adding seasons, we can see how births fluctuated by time of year over the series. Summer of 2009 shows the highest count of births.
+
+
+```{r births by season}
+ggplot(birth_data, aes(year, births, fill=season)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  scale_fill_viridis_d() +
+  labs(title = "Births by Season Over 14 Years",
+       x = "",
+       y = "",
+       caption = "Plot 5; Data: us_birth_data_00_2014") +
+  theme_minimal() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.title = element_text(face="bold"))
+```
+
+
+# Report
+
+After opening the .csv file for the `us_birth_data_00_14`, I assumed that I had a pretty good idea of wrangling and creating visualizations into R. Some things did not go according to plan. 
+
+It's not often that I get to work with `date` data and I wanted to take advantage of the `lubridate` library to do just that. Initially, my data was downloaded and imported directly from my machine - lubridate did not take that very well. After loaded from GitHub, using that functionality was much easier. 
+
+Once the date format was in order, I wanted to create the season variable just to offer a new column (as this file only had a few) that could provide more visualizations.
+
+### Original Chart Plans
+
+- Visualize by Season
+  - Completed (Plot 4)
+- Births by day of the week
+  - Completed (Plot 2)
+- Visualize by month
+  - Completed (Plot 3)
+- Visualize by year
+  - Completed (Plot 1, Plot 5)
+- Measure by % by month or year
+  - Completed (Plot 3)
+- Use color proportions
+- Calculation of births by season
+
+### Storytelling with the Data
+
+Interesting stories to come from this data was from the Days of the Week births and the Season Births. 
+
+It was very interesting to see Weekend births varied so drastically compared to Weekdays. Some things to think about:
+* Do weekdays induce labor due to stress?
+* Are women more likely to be induced for labor by physicians on weekdays?
+* Are men watching College and NFL football on the weekends directly correlated to low weekend births?
+
+Secondly, visualizing the season variable brought some interesting ways to tell a story. Although the data is not as dramatically varied as births by day of week, more births occurred in the Summer than any other season and fewer occurred in the Winter. In addition, Summer babies in 2009 were the highest data point overall. 
+
+Makes you wonder what was going down in the Fall of 2008... Other than the housing market.
+
+And finally, Plot 1 shows that around 2006, there was an influx of births until 2009 compared to other years, which could tell an interesting story with more variables available.
+
+### Principles of Data Visualization and Design
+
+After several iterations, the visualizations provided looked to be the most promising options. By getting rid of most grid lines, the visualizations look more appealing and by removing x- and y-axis labels the visualizations look much cleaner. 
+
+#### Aesthetics
+
+The majority of plots created used the aes() function for aesthetics but I could not find good use for mapping() that adding value to the plots (which was disappointing). The Viridis palette and default palette were used in the visualizations.
+
+#### Proportions
+
+The group_by() and mutate() functions were used to create proportions, averages and assign seasons to months.
+
+#### Geometries
+
+Different graph types were created including bar graphs, line graphs and a treemap to better visualize the data.
+
+
+#### Future Mini Projects
+
+In the following projects, I hope to include more scatter plots and histograms that map aesthetics better than what I was previously creating. I also hope to have the opportunity to use data to create Maps (Chapter 7). Interesting stories could be told on birth data if States were included.
